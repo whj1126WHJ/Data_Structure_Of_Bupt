@@ -1,0 +1,131 @@
+char bit[255][255];
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <limits.h>
+#include <iostream>
+#include <string>
+#include <algorithm>
+#define maxsize 256
+using namespace std;
+typedef struct {
+    unsigned char uch;			// 浠?bits涓哄崟鍏冪殑鏃犵鍙峰瓧绗?
+    unsigned long weight;		// 姣忕被锛堜互浜岃繘鍒剁紪鐮佸尯鍒嗭級瀛楃鍑虹幇棰戝害
+} TmpNode;
+
+typedef struct{
+    char bits[maxsize];//位串
+    int start;//编码在位串中的起始位置
+    char ch;//字符
+}codetype;
+
+// 鍝堝か鏇兼爲缁撶偣
+typedef struct {
+    unsigned char uch;				// 浠?bits涓哄崟鍏冪殑鏃犵鍙峰瓧绗?
+    unsigned long weight;			// 姣忕被锛堜互浜岃繘鍒剁紪鐮佸尯鍒嗭級瀛楃鍑虹幇棰戝害
+    char *code;						// 瀛楃瀵瑰簲鐨勫搱澶浖缂栫爜锛堝姩鎬佸垎閰嶅瓨鍌ㄧ┖闂达級
+    int parent, lchild, rchild;		// 瀹氫箟鍙屼翰鍜屽乏鍙冲瀛?
+} HufNode, *HufTree;
+
+bool cmp(TmpNode a, TmpNode b){
+    return a.weight >= b.weight;
+}
+
+void Gethufcode(codetype code[], HufNode huf_tree[], int n){
+    int i, c, p;
+    codetype cd;//缓冲变量
+    for(i = 0; i < n; i++){
+        cd.start = n;
+        cd.ch = huf_tree[i].uch;
+        c = i;
+        p = huf_tree[i].parent;
+        while(p){
+            cd.start--;
+            if(huf_tree[p].lchild == c)
+                cd.bits[cd.start] = '0';
+            else
+                cd.bits[cd.start] = '1';
+            c = p;
+            p = huf_tree[p].parent;
+        }
+        code[i] = cd;
+    }
+}
+
+
+
+
+// 閫夋嫨鏈€灏忓拰娆″皬鐨勪袱涓粨鐐癸紝寤虹珛鍝堝か鏇兼爲璋冪敤
+void select(HufNode *huf_tree, unsigned int n, int *s1, int *s2)
+{
+    // 鎵炬渶灏?
+    unsigned int i;
+    unsigned long min = ULONG_MAX;
+    for(i = 0; i < n; ++i)
+        if(huf_tree[i].parent == 0 && huf_tree[i].weight < min)
+        {
+            min = huf_tree[i].weight;
+            *s1 = i;
+        }
+    huf_tree[*s1].parent=1;   // 鏍囪姝ょ粨鐐瑰凡琚€変腑
+
+    // 鎵炬灏?
+    min=ULONG_MAX;
+    for(i = 0; i < n; ++i)
+        if(huf_tree[i].parent == 0 && huf_tree[i].weight < min)
+        {
+            min = huf_tree[i].weight;
+            *s2 = i;
+        }
+}
+
+// 寤虹珛鍝堝か鏇兼爲
+void CreateTree(HufNode *huf_tree, unsigned int char_kinds, unsigned int node_num)
+{
+    unsigned int i;
+    int s1, s2;
+    for(i = char_kinds; i < node_num; ++i)
+    {
+        select(huf_tree, i, &s1, &s2);		// 閫夋嫨鏈€灏忕殑涓や釜缁撶偣
+        huf_tree[s1].parent = huf_tree[s2].parent = i;
+        huf_tree[i].lchild = s1;
+        huf_tree[i].rchild = s2;
+        huf_tree[i].weight = huf_tree[s1].weight + huf_tree[s2].weight;
+    }
+}
+
+// 鐢熸垚鍝堝か鏇肩紪鐮?
+void HufCode(HufNode *huf_tree, unsigned char_kinds)
+{
+    unsigned int i;
+    int cur, next, index;
+    char *code_tmp = (char *)malloc(256*sizeof(char));		// 鏆傚瓨缂栫爜锛屾渶澶?56涓彾瀛愶紝缂栫爜闀垮害涓嶈秴澶?55
+    code_tmp[256-1] = '\0';
+
+    for(i = 0; i < char_kinds; ++i)
+    {
+        index = 256-1;	// 缂栫爜涓存椂绌洪棿绱㈠紩鍒濆鍖?
+
+        // 浠庡彾瀛愬悜鏍瑰弽鍚戦亶鍘嗘眰缂栫爜
+        for(cur = i, next = huf_tree[i].parent; next != 0;
+            cur = next, next = huf_tree[next].parent)
+            if(huf_tree[next].lchild == cur)
+                code_tmp[--index] = '0';	// 宸︹€?鈥?
+            else
+                code_tmp[--index] = '1';	// 鍙斥€?鈥?
+        huf_tree[i].code = (char *)malloc((256-index)*sizeof(char));			// 涓虹i涓瓧绗︾紪鐮佸姩鎬佸垎閰嶅瓨鍌ㄧ┖闂?
+        strcpy(huf_tree[i].code, &code_tmp[index]);     // 姝ｅ悜淇濆瓨缂栫爜鍒版爲缁撶偣鐩稿簲鍩熶腑
+    }
+    free(code_tmp);		// 閲婃斁缂栫爜涓存椂绌洪棿
+}
+
+void hufcode(codetype code[], int n){
+    for(int i = 0; i < n; i++){
+        printf("%c: ",code[i].ch);
+        for(int j = 0; j < n-code[i].start; j++){
+            printf("%c",code[i].bits[code[i].start+j]);
+            bit[code[i].ch - ' '][j] = code[i].bits[code[i].start+j];
+        }
+        printf("\n");
+    }
+}
